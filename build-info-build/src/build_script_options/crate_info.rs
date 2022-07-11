@@ -1,8 +1,4 @@
-use std::collections::hash_map::{Entry, HashMap};
-
-use build_info_common::{semver::Version, CrateInfo};
-use cargo_metadata::*;
-use pretty_assertions::assert_eq;
+use build_info_common::CrateInfo;
 
 impl crate::BuildScriptOptions {
 	/// Enables and disables dependency collection.
@@ -20,119 +16,33 @@ pub(crate) struct Manifest {
 	pub workspace_root: String,
 }
 
-pub(crate) fn read_manifest(target_platform: &str, collect_dependencies: bool) -> Manifest {
-	let mut args = vec!["--filter-platform".to_string(), target_platform.to_string()];
+pub(crate) fn read_manifest() -> Manifest {
+	let mut enabled_features = vec![];
 
-	// Cargo does not provide a proper list of enabled features, so we collect metadata once to find all possible
-	// features, convert them to the equivalent `CARGO_FEATURE_` representation, check for collisions, and then rerun
-	// the command with the appropriate feature flags selected.
-	//
-	// We still expect this to fail for dependency flags that are enabled by hand (e.g.,
-	// `cargo run --features=serde/derive`), but so far there is no workaround for that.
-
-	let meta = MetadataCommand::new()
-		.cargo_path(std::env::var_os("CARGO").unwrap())
-		.manifest_path(&*super::CARGO_TOML)
-		.features(CargoOpt::NoDefaultFeatures)
-		.other_options(args.clone())
-		.exec()
-		.unwrap();
-
-	let root = &meta[meta.resolve.as_ref().unwrap().root.as_ref().unwrap()];
-	let mut map = HashMap::new();
-	for feature in root.features.keys() {
-		if !feature.is_ascii() {
-			panic!("The feature {feature:?} contains non-ascii characters.");
-		}
-		let env_var = format!("CARGO_FEATURE_{}", feature.to_ascii_uppercase().replace('-', "_"));
-		if std::env::var_os(&env_var).is_some() {
-			match map.entry(env_var) {
-				Entry::Vacant(entry) => {
-					entry.insert(feature);
-				}
-				Entry::Occupied(entry) => panic!(
-					"The features {:?} and {:?} have the same representation as cargo feature flags ({:?})",
-					feature,
-					entry.get(),
-					entry.key()
-				),
-			}
+	for (key, _) in std::env::vars() {
+		if let Some(p) = key.strip_prefix("CARGO_FEATURE_") {
+			enabled_features.push(p.to_ascii_lowercase());
 		}
 	}
 
-	let mut feature_list = String::new();
-	for feature in map.values() {
-		if !feature_list.is_empty() {
-			feature_list += ",";
-		}
-		feature_list += feature;
-	}
-	args.push("--features".to_string());
-	args.push(feature_list);
-
-	let meta = MetadataCommand::new()
-		.cargo_path(std::env::var_os("CARGO").unwrap())
-		.manifest_path(&*super::CARGO_TOML)
-		.features(CargoOpt::NoDefaultFeatures)
-		.other_options(args)
-		.exec()
-		.unwrap();
-	let crate_info = make_crate_info(&meta, collect_dependencies);
-
-	assert_eq!(crate_info.name, std::env::var("CARGO_PKG_NAME").unwrap()); // sanity check...
-	assert_eq!(
-		crate_info.version.to_string(),
-		std::env::var("CARGO_PKG_VERSION").unwrap()
-	); // sanity check...
-	assert_eq!(
-		crate_info.authors.join(":"),
-		std::env::var("CARGO_PKG_AUTHORS").unwrap()
-	); // sanity check...
+	let crate_info = CrateInfo {
+		name: std::env::var("CARGO_PKG_NAME").expect("CARGO_PKG_NAME"),
+		version: std::env::var("CARGO_PKG_VERSION")
+			.expect("CARGO_PKG_VERSION")
+			.parse()
+			.expect("CARGO_PKG_VERSION: parse"),
+		authors: std::env::var("CARGO_PKG_AUTHORS").map_or_else(
+			|_| Vec::new(),
+			|authors| authors.split(':').map(|x| x.to_string()).collect::<Vec<_>>(),
+		),
+		enabled_features,
+		available_features: Default::default(),
+		dependencies: Default::default(),
+		license: std::env::var("CARGO_PKG_LICENSE").ok(),
+	};
 
 	Manifest {
 		crate_info,
-		workspace_root: meta.workspace_root.into(),
-	}
-}
-
-fn make_crate_info(meta: &Metadata, collect_dependencies: bool) -> CrateInfo {
-	let resolve = meta.resolve.as_ref().unwrap();
-	let root_id = resolve.root.as_ref().unwrap();
-	let dependencies: HashMap<&PackageId, &Node> = resolve.nodes.iter().map(|node| (&node.id, node)).collect();
-
-	to_crate_info(dependencies[&root_id], &dependencies, meta, collect_dependencies)
-}
-
-fn to_crate_info(
-	node: &Node,
-	dependencies: &HashMap<&PackageId, &Node>,
-	meta: &Metadata,
-	collect_dependencies: bool,
-) -> CrateInfo {
-	let pkg = &meta[&node.id];
-	let name = pkg.name.clone();
-	let version = Version::parse(&pkg.version.to_string()).unwrap();
-	let authors = pkg.authors.clone();
-	let license = pkg.license.clone();
-	let available_features = pkg.features.iter().map(|(key, _value)| key.clone()).collect();
-	let enabled_features = node.features.clone();
-	let dependencies = if collect_dependencies {
-		node
-			.deps
-			.iter()
-			.map(|dep| to_crate_info(dependencies[&dep.pkg], dependencies, meta, collect_dependencies))
-			.collect()
-	} else {
-		Vec::new()
-	};
-
-	CrateInfo {
-		name,
-		version,
-		authors,
-		license,
-		enabled_features,
-		available_features,
-		dependencies,
+		workspace_root: std::env::var("CARGO_MANIFEST_DIR").expect("CARGO_MANIFEST_DIR"),
 	}
 }

@@ -57,7 +57,7 @@ impl BuildScriptOptions {
 		let crate_info::Manifest {
 			crate_info,
 			workspace_root,
-		} = crate_info::read_manifest(&compiler.target_triple, self.collect_dependencies);
+		} = crate_info::read_manifest();
 		let version_control = version_control::get_info();
 
 		let timestamp = self.timestamp.unwrap_or_else(timestamp::get_timestamp);
