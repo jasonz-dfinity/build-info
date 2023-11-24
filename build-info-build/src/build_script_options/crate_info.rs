@@ -1,4 +1,5 @@
 use build_info_common::CrateInfo;
+use cargo_metadata::*;
 
 impl crate::BuildScriptOptions {
 	/// Enables and disables dependency collection.
@@ -17,8 +18,14 @@ pub(crate) struct Manifest {
 }
 
 pub(crate) fn read_manifest() -> Manifest {
-	let mut enabled_features = vec![];
+	let meta = MetadataCommand::new()
+		.cargo_path(std::env::var_os("CARGO").unwrap())
+		.manifest_path(&*super::CARGO_TOML)
+		.features(CargoOpt::NoDefaultFeatures)
+		.exec()
+		.unwrap();
 
+	let mut enabled_features = vec![];
 	for (key, _) in std::env::vars() {
 		if let Some(p) = key.strip_prefix("CARGO_FEATURE_") {
 			enabled_features.push(p.to_ascii_lowercase());
@@ -43,6 +50,6 @@ pub(crate) fn read_manifest() -> Manifest {
 
 	Manifest {
 		crate_info,
-		workspace_root: std::env::var("CARGO_MANIFEST_DIR").expect("CARGO_MANIFEST_DIR"),
+		workspace_root: meta.workspace_root.into(),
 	}
 }
