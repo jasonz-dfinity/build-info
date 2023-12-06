@@ -5,14 +5,10 @@ use base64::write::EncoderWriter as Base64Encoder;
 use build_info_common::{OptimizationLevel, VersionedString};
 use xz2::write::XzEncoder;
 
-use super::{
-	chrono::{DateTime, Utc},
-	BuildInfo,
-};
+use super::BuildInfo;
 
 mod compiler;
 mod crate_info;
-mod timestamp;
 mod version_control;
 
 lazy_static::lazy_static! {
@@ -24,9 +20,6 @@ lazy_static::lazy_static! {
 pub struct BuildScriptOptions {
 	/// Stores if the build info has already been generated
 	consumed: bool,
-
-	/// Use this as the build timestamp, if set.
-	timestamp: Option<DateTime<Utc>>,
 
 	/// Enable dependency collection
 	collect_dependencies: bool,
@@ -60,9 +53,7 @@ impl BuildScriptOptions {
 		} = crate_info::read_manifest();
 		let version_control = version_control::get_info();
 
-		let timestamp = self.timestamp.unwrap_or_else(timestamp::get_timestamp);
 		let build_info = BuildInfo {
-			timestamp,
 			profile,
 			optimization_level,
 			crate_info,
@@ -110,7 +101,6 @@ impl Default for BuildScriptOptions {
 
 		Self {
 			consumed: false,
-			timestamp: None,
 			collect_dependencies: false,
 		}
 	}
