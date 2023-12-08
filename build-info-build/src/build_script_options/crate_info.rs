@@ -18,6 +18,9 @@ pub(crate) struct Manifest {
 }
 
 pub(crate) fn read_manifest() -> Manifest {
+	for (key, value) in std::env::vars_os() {
+		println!("{key:?}: {value:?}");
+	}
 	let meta = MetadataCommand::new()
 		.cargo_path(std::env::var_os("CARGO").expect("Cargo should exist"))
 		.manifest_path(&*super::CARGO_TOML)
