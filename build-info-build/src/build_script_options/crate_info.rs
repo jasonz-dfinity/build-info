@@ -22,7 +22,6 @@ pub(crate) fn read_manifest() -> Manifest {
 		println!("{key:?}: {value:?}");
 	}
 	let meta = MetadataCommand::new()
-		.cargo_path(std::env::var_os("CARGO").expect("Cargo should exist"))
 		.manifest_path(&*super::CARGO_TOML)
 		.features(CargoOpt::NoDefaultFeatures)
 		.exec()
