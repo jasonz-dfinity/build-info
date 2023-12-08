@@ -18,6 +18,12 @@ pub(crate) struct Manifest {
 }
 
 pub(crate) fn read_manifest() -> Manifest {
+	println!("Env strings:");
+	for (key, value) in std::env::vars() {
+		println!("{key:?}: {value:?}");
+	}
+
+	println!("Env OS strings:");
 	for (key, value) in std::env::vars_os() {
 		println!("{key:?}: {value:?}");
 	}
