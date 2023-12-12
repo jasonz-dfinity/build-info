@@ -11,12 +11,7 @@ impl crate::BuildScriptOptions {
 	}
 }
 
-pub(crate) struct Manifest {
-	pub crate_info: CrateInfo,
-	pub workspace_root: String,
-}
-
-pub(crate) fn read_manifest() -> Manifest {
+pub(crate) fn read_crate_info() -> CrateInfo {
 	let mut enabled_features = vec![];
 
 	for (key, _) in std::env::vars() {
@@ -41,8 +36,5 @@ pub(crate) fn read_manifest() -> Manifest {
 		license: std::env::var("CARGO_PKG_LICENSE").ok(),
 	};
 
-	Manifest {
-		crate_info,
-		workspace_root: std::env::var("CARGO_MANIFEST_DIR").expect("CARGO_MANIFEST_DIR"),
-	}
+	crate_info
 }

@@ -47,10 +47,7 @@ impl BuildScriptOptions {
 		};
 
 		let compiler = compiler::get_info();
-		let crate_info::Manifest {
-			crate_info,
-			workspace_root,
-		} = crate_info::read_manifest();
+		let crate_info = crate_info::read_crate_info();
 		let version_control = version_control::get_info();
 
 		let build_info = BuildInfo {
@@ -76,7 +73,7 @@ impl BuildScriptOptions {
 		// Whenever any `cargo:rerun-if-changed` key is set, the default set is cleared.
 		// Since we will need to emit such keys to trigger rebuilds when the vcs repository changes state,
 		// we also have to emit the customary triggers again, or we will only be rerun in that exact case.
-		rebuild_if_project_changes(&workspace_root);
+		rebuild_if_project_changes();
 
 		build_info
 	}
@@ -115,17 +112,7 @@ impl Drop for BuildScriptOptions {
 }
 
 /// Emits a `cargo:rerun-if-changed` line for each file in the target project.
-/// By default, the following files are included:
-/// - `Cargo.toml`
-/// - `$workspace_root/Cargo.lock`
-/// - Any file that ends in `.rs`
-fn rebuild_if_project_changes(workspace_root: &str) {
-	println!("cargo:rerun-if-changed={}", CARGO_TOML.to_str().unwrap());
-	println!(
-		"cargo:rerun-if-changed={}",
-		Path::new(workspace_root).join("Cargo.lock").to_str().unwrap()
-	);
-
+fn rebuild_if_project_changes() {
 	for source in glob::glob_with(
 		"**/*.rs",
 		glob::MatchOptions {
